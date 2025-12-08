@@ -1,0 +1,13 @@
+upstream tv_upstream {
+    # Para usar GREEN (por defecto)
+    server tv_green:5000;
+    # Para switch a BLUE, comentar la anterior y descomentar la siguiente
+    # server tv_blue:5000;
+}
+
+server {
+    listen 80;
+    location / {
+        proxy_pass http://tv_upstream;
+    }
+}
