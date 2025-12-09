@@ -22,39 +22,61 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Build Docker image (artifact)
+      - name: Build stable image (previous commit)
+        run: |
+          git checkout ${{ github.event.before }}
+          docker build -t transaction-validator:${{ github.event.before }} .
+          git checkout ${{ github.sha }}
+
+      - name: Build canary image (current commit)
         run: |
           docker build -t transaction-validator:${{ github.sha }} .
 
-      - name: Save Docker image artifact
-        run: |
-          docker save transaction-validator:${{ github.sha }} -o transaction-validator-${{ github.sha }}.tar
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: transaction-validator-image
-          path: transaction-validator-${{ github.sha }}.tar
-
-      - name: Deploy to simulated production (docker-compose)
+      - name: Deploy gateway with 20% canary
         env:
-          IMAGE_TAG: ${{ github.sha }}
+          STABLE_TAG: ${{ github.event.before }}
+          CANARY_TAG: ${{ github.sha }}
         run: |
+          sed -i 's/validator-stable:8080 weight=[0-9]\+/validator-stable:8080 weight=80/' deploy/nginx.conf
+          sed -i 's/validator-canary:8080 weight=[0-9]\+/validator-canary:8080 weight=20/' deploy/nginx.conf
           docker compose -f deploy/docker-compose.prod.yml up -d
-          echo "Waiting for service to be healthy..."
           for i in {1..20}; do
-            if curl -fsS http://localhost:8080/health | grep -q '"ok"'; then
-              echo "Service healthy"; break; fi; sleep 3; done
+            if curl -fsS http://localhost:8080/health | grep -q '"ok"'; then break; fi; sleep 3; done
 
-      - name: Smoke test validate endpoint
+      - name: Gating check 20%
         run: |
+          curl -fsS -X POST http://localhost:8080/validate \
+            -H 'Content-Type: application/json' \
+            -d '{"amount":100,"currency":"MXN","accountId":"acc-1"}' || exit 1
+
+      - name: Shift to 40% canary
+        run: |
+          sed -i 's/validator-stable:8080 weight=[0-9]\+/validator-stable:8080 weight=60/' deploy/nginx.conf
+          sed -i 's/validator-canary:8080 weight=[0-9]\+/validator-canary:8080 weight=40/' deploy/nginx.conf
+          docker exec gateway nginx -s reload
+          curl -fsS -X POST http://localhost:8080/validate \
+            -H 'Content-Type: application/json' \
+            -d '{"amount":100,"currency":"MXN","accountId":"acc-1"}' || exit 1
+
+      - name: Shift to 60% canary
+        run: |
+          sed -i 's/validator-stable:8080 weight=[0-9]\+/validator-stable:8080 weight=40/' deploy/nginx.conf
+          sed -i 's/validator-canary:8080 weight=[0-9]\+/validator-canary:8080 weight=60/' deploy/nginx.conf
+          docker exec gateway nginx -s reload
+          curl -fsS -X POST http://localhost:8080/validate \
+            -H 'Content-Type: application/json' \
+            -d '{"amount":100,"currency":"MXN","accountId":"acc-1"}' || exit 1
+
+      - name: Shift to 100% canary
+        run: |
+          sed -i 's/validator-stable:8080 weight=[0-9]\+/validator-stable:8080 weight=0/' deploy/nginx.conf
+          sed -i 's/validator-canary:8080 weight=[0-9]\+/validator-canary:8080 weight=100/' deploy/nginx.conf
+          docker exec gateway nginx -s reload
           curl -fsS -X POST http://localhost:8080/validate \
             -H 'Content-Type: application/json' \
             -d '{"amount":100,"currency":"MXN","accountId":"acc-1"}' || exit 1
 
       - name: Teardown simulated production
         if: always()
-        env:
-          IMAGE_TAG: ${{ github.sha }}
         run: |
           docker compose -f deploy/docker-compose.prod.yml down

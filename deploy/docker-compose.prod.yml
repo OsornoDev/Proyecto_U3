@@ -1,12 +1,30 @@
 version: '3.8'
 services:
-  transaction-validator:
-    image: transaction-validator:${IMAGE_TAG}
-    container_name: transaction-validator
-    ports:
-      - "8080:8080"
+  validator-stable:
+    image: transaction-validator:${STABLE_TAG}
+    container_name: validator-stable
     environment:
       - NODE_ENV=production
       - LOG_LEVEL=info
       - PORT=8080
     restart: unless-stopped
+
+  validator-canary:
+    image: transaction-validator:${CANARY_TAG}
+    container_name: validator-canary
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - PORT=8080
+    restart: unless-stopped
+
+  gateway:
+    image: nginx:1.25-alpine
+    container_name: gateway
+    depends_on:
+      - validator-stable
+      - validator-canary
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
