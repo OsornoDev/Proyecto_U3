@@ -16,4 +16,5 @@ Este proyecto incluye:
   - Construcción del artefacto Docker.
   - Pruebas automatizadas.
   - Empaquetado (imagen Docker y artifact `.tar`).
-  - Despliegue simulado con Docker Compose, verificación de salud y smoke test.
+  - Despliegue simulado con Docker Compose, verificación de salud y smoke test.# Proyecto_U3
+# Proyecto_U3
