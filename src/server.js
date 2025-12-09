@@ -1,6 +1,9 @@
-import app from "./app.js";
+const http = require('http');
+const app = require('./app');
 
 const port = process.env.PORT || 8080;
-app.listen(port, () => {
-  console.log(`transaction-validator listening on port ${port}`);
+const server = http.createServer(app);
+
+server.listen(port, () => {
+  console.log(JSON.stringify({ msg: 'listening', port }));
 });
