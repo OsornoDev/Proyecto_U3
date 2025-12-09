@@ -76,6 +76,23 @@ jobs:
             -H 'Content-Type: application/json' \
             -d '{"amount":100,"currency":"MXN","accountId":"acc-1"}' || exit 1
 
+      - name: Post-deploy validation
+        run: |
+          for i in {1..10}; do curl -fsS http://localhost:8080/health | grep -q '"ok"' || exit 1; sleep 1; done
+          for i in {1..10}; do \
+            curl -fsS -X POST http://localhost:8080/validate \
+              -H 'Content-Type: application/json' \
+              -d '{"amount":100,"currency":"MXN","accountId":"acc-1"}' || exit 1; \
+            sleep 1; done
+
+      - name: Rollback to stable if failure
+        if: failure()
+        run: |
+          sed -i 's/validator-stable:8080 weight=[0-9]\+/validator-stable:8080 weight=100/' deploy/nginx.conf
+          sed -i 's/validator-canary:8080 weight=[0-9]\+/validator-canary:8080 weight=0/' deploy/nginx.conf
+          docker exec gateway nginx -s reload
+          curl -fsS http://localhost:8080/health | grep -q '"ok"' || exit 1
+
       - name: Teardown simulated production
         if: always()
         run: |
