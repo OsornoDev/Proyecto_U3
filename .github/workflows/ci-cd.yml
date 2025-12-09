@@ -1,0 +1,60 @@
+name: CI-CD Transaction Validator
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build-test-package-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build Docker image (artifact)
+        run: |
+          docker build -t transaction-validator:${{ github.sha }} .
+
+      - name: Save Docker image artifact
+        run: |
+          docker save transaction-validator:${{ github.sha }} -o transaction-validator-${{ github.sha }}.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: transaction-validator-image
+          path: transaction-validator-${{ github.sha }}.tar
+
+      - name: Deploy to simulated production (docker-compose)
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker compose -f deploy/docker-compose.prod.yml up -d
+          echo "Waiting for service to be healthy..."
+          for i in {1..20}; do
+            if curl -fsS http://localhost:8080/health | grep -q '"ok"'; then
+              echo "Service healthy"; break; fi; sleep 3; done
+
+      - name: Smoke test validate endpoint
+        run: |
+          curl -fsS -X POST http://localhost:8080/validate \
+            -H 'Content-Type: application/json' \
+            -d '{"amount":100,"currency":"MXN","accountId":"acc-1"}' || exit 1
+
+      - name: Teardown simulated production
+        if: always()
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker compose -f deploy/docker-compose.prod.yml down

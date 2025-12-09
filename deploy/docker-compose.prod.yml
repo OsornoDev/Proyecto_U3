@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  transaction-validator:
+    image: transaction-validator:${IMAGE_TAG}
+    container_name: transaction-validator
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - PORT=8080
+    restart: unless-stopped
