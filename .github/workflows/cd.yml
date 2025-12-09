@@ -1,0 +1,50 @@
+name: cd
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm install
+      - run: npm test
+  package:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t transaction-validator:${{ github.sha }} .
+      - name: Save image as artifact
+        run: docker save transaction-validator:${{ github.sha }} | gzip > image.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: transaction-validator-image
+          path: image.tar.gz
+  deploy-simulated:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: transaction-validator-image
+          path: .
+      - run: gunzip -c image.tar.gz | docker load
+      - name: Start simulated production
+        run: docker compose -f docker-compose.prod.yml up -d --build
+      - name: Verify health
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8080/health | grep -q "ok"; then exit 0; fi
+            sleep 2
+          done
+          echo "Service not healthy"
+          docker compose -f docker-compose.prod.yml logs --no-color || true
+          exit 1

@@ -1,0 +1,15 @@
+{
+  "name": "transaction-validator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:dev": "node --watch src/server.js",
+    "test": "node --test",
+    "build": "echo \"No build step for JS\""
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
