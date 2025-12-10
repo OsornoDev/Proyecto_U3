@@ -1,0 +1,72 @@
+{
+  "title": "Transaction Validator Overview",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Latency p95 (seconds)",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~\"validator-.*\"}[5m])) by (le))"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Latency p99 (seconds)",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=~\"validator-.*\"}[5m])) by (le))"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Error rate (5xx)",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{job=~\"validator-.*\",status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=~\"validator-.*\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Availability (2xx / total)",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{job=~\"validator-.*\",status_code=~\"2..\"}[5m])) / sum(rate(http_requests_total{job=~\"validator-.*\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Container CPU (validators)",
+      "targets": [
+        {
+          "expr": "sum by (container) (rate(container_cpu_usage_seconds_total{container=~\"validator-.*\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Container Memory (validators)",
+      "targets": [
+        {
+          "expr": "sum by (container) (container_memory_working_set_bytes{container=~\"validator-.*\"})"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Container I/O Reads/Writes (validators)",
+      "targets": [
+        {
+          "expr": "sum by (container) (rate(container_fs_reads_bytes_total{container=~\"validator-.*\"}[5m]))"
+        },
+        {
+          "expr": "sum by (container) (rate(container_fs_writes_bytes_total{container=~\"validator-.*\"}[5m]))"
+        }
+      ]
+    }
+  ]
+}

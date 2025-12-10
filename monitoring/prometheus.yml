@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'validator-stable'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['validator-stable:8080']
+  - job_name: 'validator-canary'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['validator-canary:8080']
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
