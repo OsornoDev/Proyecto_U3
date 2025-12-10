@@ -1,15 +1,17 @@
 const express = require('express');
 const pino = require('pino');
 const pinoHttp = require('pino-http');
+const crypto = require('crypto');
 const client = require('prom-client');
 
 const app = express();
 app.use(express.json());
 
-const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
+const logger = pino({ level: process.env.LOG_LEVEL || 'info', base: { service: 'transaction-validator' } });
 app.use(
   pinoHttp({
     logger,
+    genReqId: (req) => req.headers['x-request-id'] || crypto.randomUUID(),
     customLogLevel: function (res, err) {
       if (err || res.statusCode >= 500) return 'error';
       if (res.statusCode >= 400) return 'warn';
